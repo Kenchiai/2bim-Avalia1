@@ -9,11 +9,17 @@ const botaoBaixar = document.getElementById("baixar");
 let svgAtual = "";
 let idTokenGoogle = ""; // Variável para guardar o ID Token retornado pelo Google
 
-// Função de callback chamada pelo botão de login do Google
-function handleCredentialResponse(response) {
+// O Google Identity Services procura o callback no escopo global da página.
+window.handleCredentialResponse = (response) => {
+  if (!response || typeof response.credential !== "string" || !response.credential) {
+    idTokenGoogle = "";
+    mensagem.textContent = "Não foi possível obter o token do Google. Tente entrar novamente.";
+    return;
+  }
+
   idTokenGoogle = response.credential;
   mensagem.textContent = "Autenticado com sucesso! Agora você pode gerar o desenho.";
-}
+};
 
 formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();

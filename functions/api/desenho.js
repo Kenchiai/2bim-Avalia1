@@ -31,10 +31,16 @@ export async function onRequestPost(context) {
   }
 
   const idToken = authHeader.split(" ")[1];
+  const clientIDEsperado = env.GOOGLE_CLIENT_ID;
+  if (!clientIDEsperado) {
+    return new Response("Configuração GOOGLE_CLIENT_ID ausente no servidor", { status: 500 });
+  }
 
   // 4. Valida o token do Google chamando o tokeninfo
   try {
-    const googleResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`);
+    const tokenInfoURL = new URL("https://oauth2.googleapis.com/tokeninfo");
+    tokenInfoURL.searchParams.set("id_token", idToken);
+    const googleResponse = await fetch(tokenInfoURL);
 
     if (!googleResponse.ok) {
       return new Response("Token do Google inválido ou expirado", { status: 401 });
@@ -43,7 +49,6 @@ export async function onRequestPost(context) {
     const payload = await googleResponse.json();
 
     // 5. Validações do Payload do Token
-    const clientIDEsperado = env.GOOGLE_CLIENT_ID; // Variável configurada no Cloudflare
     if (payload.aud !== clientIDEsperado) {
       return new Response("Token emitido para um Client ID incorreto", { status: 401 });
     }
@@ -64,6 +69,6 @@ export async function onRequestPost(context) {
     });
 
   } catch (error) {
-    return new Response("Erro ao validar token junto ao Google", { status: 401 });
+    return new Response("Não foi possível validar o token junto ao Google", { status: 502 });
   }
 }
