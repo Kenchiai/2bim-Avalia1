@@ -1,83 +1,62 @@
-// script.js
-// Versao inicial: todo o trabalho acontece no navegador.
-// A tarefa consiste em levar gerarDesenho para o servidor (Pages Functions)
-// e fazer esta pagina apenas enviar o numero e exibir a resposta.
-
-import { gerarDesenho, numeroValido } from "../lib/desenho.js";
+// public/script.js
 
 const formulario = document.getElementById("formulario");
 const campoNumero = document.getElementById("numero");
-const campoEmail = document.getElementById("email");
 const area = document.getElementById("desenho");
 const mensagem = document.getElementById("mensagem");
 const botaoBaixar = document.getElementById("baixar");
 
 let svgAtual = "";
+let idTokenGoogle = ""; // Variável para guardar o ID Token retornado pelo Google
 
-formulario.addEventListener("submit", (evento) => {
+// Função de callback chamada pelo botão de login do Google
+function handleCredentialResponse(response) {
+  idTokenGoogle = response.credential;
+  mensagem.textContent = "Autenticado com sucesso! Agora você pode gerar o desenho.";
+}
+
+formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   mensagem.textContent = "";
 
   const numero = Number(campoNumero.value);
-  const email = campoEmail.value.trim();
 
-  if (!numeroValido(numero)) {
+  // Validação simples no frontend antes de enviar
+  if (!Number.isInteger(numero) || numero < 1 || numero > 100) {
     mensagem.textContent = "Digite um inteiro entre 1 e 100.";
     return;
   }
-  if (email === "") {
-    mensagem.textContent = "Informe um e-mail.";
-    return;
-  }
 
-  svgAtual = gerarDesenho(numero, email);
-  area.innerHTML = svgAtual;
-  botaoBaixar.hidden = false;
-});
-
-botaoBaixar.addEventListener("click", () => {
-  const arquivo = new Blob([svgAtual], { type: "image/svg+xml" });
-  const url = URL.createObjectURL(arquivo);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "exemplo.svg";
-  link.click();
-  URL.revokeObjectURL(url);
-});
-
-let idTokenGoogle = "";
-
-// Função invocada automaticamente pelo Google após login bem-sucedido
-function handleCredentialResponse(response) {
-  // response.credential contém o id_token enviado pelo Google
-  idTokenGoogle = response.credential;
-  document.getElementById("mensagem").textContent = "Autenticado com sucesso no Google!";
-}
-
-document.getElementById("formulario").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  
   if (!idTokenGoogle) {
-    alert("Por favor, faça login com o Google primeiro.");
+    mensagem.textContent = "Por favor, faça login com o Google primeiro.";
     return;
   }
 
-  const numero = Number(document.getElementById("numero").value);
+  try {
+    // Chamada POST para a Pages Function (API)
+    const resposta = await fetch("/api/desenho", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${idTokenGoogle}`
+      },
+      body: JSON.stringify({ numero: numero })
+    });
 
-  const resposta = await fetch("/api/desenho", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${idTokenGoogle}` // Envia o ID Token
-    },
-    body: JSON.stringify({ numero: numero })
-  });
-
-  if (resposta.ok) {
-    const svgContent = await resposta.text();
-    document.getElementById("desenho").innerHTML = svgContent;
-  } else {
-    const erro = await resposta.text();
-    alert(`Erro (${resposta.status}): ${erro}`);
+    if (resposta.ok) {
+      // Recebe o SVG gerado pelo servidor
+      svgAtual = await resposta.text();
+      area.innerHTML = svgAtual;
+      botaoBaixar.hidden = false;
+      mensagem.textContent = "";
+    } else {
+      // Trata erros 400 ou 401 devolvidos pelo servidor
+      const erro = await resposta.text();
+      mensagem.textContent = `Erro (${resposta.status}): ${erro}`;
+      area.innerHTML = "";
+      botaoBaixar.hidden = true;
+    }
+  } catch (err) {
+    mensagem.textContent = "Erro ao conectar com o servidor.";
   }
 });
