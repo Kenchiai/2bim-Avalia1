@@ -44,3 +44,14 @@ botaoBaixar.addEventListener("click", () => {
   link.click();
   URL.revokeObjectURL(url);
 });
+
+let idTokenGoogle = "";
+
+// Função invocada automaticamente pelo Google após login bem-sucedido
+function handleCredentialResponse(response) {
+  // response.credential contém o id_token enviado pelo Google
+  idTokenGoogle = response.credential;
+  
+  const mensagem = document.getElementById("mensagem");
+  mensagem.textContent = "Autenticado com sucesso no Google!";
+}
