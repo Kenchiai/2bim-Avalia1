@@ -59,7 +59,18 @@ formulario.addEventListener("submit", async (evento) => {
       area.innerHTML = svgAtual;
       botaoBaixar.hidden = false;
       mensagem.textContent = "";
-    } 
+    } else {
+      // Tratamento de Erros (400, 401, etc.)
+      const textoErro = await resposta.text();
+      
+      if (resposta.status === 400) {
+        mensagem.textContent = `Erro 400 (Requisição inválida): ${textoErro}`;
+      } else if (resposta.status === 401) {
+        mensagem.textContent = `Erro 401 (Não autorizado): ${textoErro}`;
+      } else {
+        mensagem.textContent = `Erro ${resposta.status}: ${textoErro}`;
+      }
+    }
   } catch (erro) {
     mensagem.textContent = "Erro de rede ao tentar conectar com o servidor.";
   }
