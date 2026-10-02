@@ -51,7 +51,33 @@ let idTokenGoogle = "";
 function handleCredentialResponse(response) {
   // response.credential contém o id_token enviado pelo Google
   idTokenGoogle = response.credential;
-  
-  const mensagem = document.getElementById("mensagem");
-  mensagem.textContent = "Autenticado com sucesso no Google!";
+  document.getElementById("mensagem").textContent = "Autenticado com sucesso no Google!";
 }
+
+document.getElementById("formulario").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  
+  if (!idTokenGoogle) {
+    alert("Por favor, faça login com o Google primeiro.");
+    return;
+  }
+
+  const numero = Number(document.getElementById("numero").value);
+
+  const resposta = await fetch("/api/desenho", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${idTokenGoogle}` // Envia o ID Token
+    },
+    body: JSON.stringify({ numero: numero })
+  });
+
+  if (resposta.ok) {
+    const svgContent = await resposta.text();
+    document.getElementById("desenho").innerHTML = svgContent;
+  } else {
+    const erro = await resposta.text();
+    alert(`Erro (${resposta.status}): ${erro}`);
+  }
+});
