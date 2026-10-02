@@ -1,66 +1,155 @@
 // functions/api/desenho.js
 import { gerarDesenho, numeroValido } from "../../lib/desenho.js";
 
+// Funções auxiliares para decodificação Base64URL
+function base64UrlDecode(str) {
+  let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (base64.length % 4) {
+    base64 += "=";
+  }
+  const binaryStr = atob(base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+    bytes[i] = binaryStr.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function parseJwtSection(sectionBase64) {
+  const bytes = base64UrlDecode(sectionBase64);
+  const jsonStr = new TextDecoder().decode(bytes);
+  return JSON.parse(jsonStr);
+}
+
+// Função de validação local RS256 usando Web Crypto API
+async function verificarIdTokenLocal(idToken, clientIDEsperado) {
+  const partes = idToken.split(".");
+  if (partes.length !== 3) {
+    throw new Error("Formato do token JWT inválido.");
+  }
+
+  const [headerB64, payloadB64, signatureB64] = partes;
+
+  // 1. Decodifica Header e Payload
+  const header = parseJwtSection(headerB64);
+  const payload = parseJwtSection(payloadB64);
+
+  // 2. Validação dos Claims (iss, aud, exp, email_verified)
+  const emissorValido =
+    payload.iss === "https://accounts.google.com" ||
+    payload.iss === "accounts.google.com";
+
+  if (!emissorValido) {
+    throw new Error("Emissor do token (iss) inválido.");
+  }
+
+  if (payload.aud !== clientIDEsperado) {
+    throw new Error("Client ID (aud) divergente.");
+  }
+
+  const agoraEmSegundos = Math.floor(Date.now() / 1000);
+  if (payload.exp && agoraEmSegundos >= payload.exp) {
+    throw new Error("Token expirado (exp).");
+  }
+
+  if (payload.email_verified !== "true" && payload.email_verified !== true) {
+    throw new Error("E-mail não verificado pelo Google.");
+  }
+
+  // 3. Busca o JWKS oficial do Google
+  const jwksRes = await fetch("https://www.googleapis.com/oauth2/v3/certs");
+  if (!jwksRes.ok) {
+    throw new Error("Não foi possível obter as chaves públicas do Google.");
+  }
+
+  const jwks = await jwksRes.json();
+  const chavePublicaJwk = jwks.keys.find((key) => key.kid === header.kid);
+
+  if (!chavePublicaJwk) {
+    throw new Error("Chave correspondente ao 'kid' não encontrada no JWKS.");
+  }
+
+  // 4. Importa a chave pública usando a Web Crypto API
+  const cryptoKey = await crypto.subtle.importKey(
+    "jwk",
+    chavePublicaJwk,
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      hash: { name: "SHA-256" }
+    },
+    false,
+    ["verify"]
+  );
+
+  // 5. Verifica a assinatura criptográfica RS256
+  const dadosAssinados = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+  const assinaturaBytes = base64UrlDecode(signatureB64);
+
+  const assinaturaValida = await crypto.subtle.verify(
+    "RSASSA-PKCS1-v1_5",
+    cryptoKey,
+    assinaturaBytes,
+    dadosAssinados
+  );
+
+  if (!assinaturaValida) {
+    throw new Error("Assinatura criptográfica do token é inválida.");
+  }
+
+  return payload;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
+  // 1. Validação de Método HTTP (HTTP 405)
   if (request.method !== "POST") {
-    return new Response("Método não permitido", { status: 405 });
+    return new Response("Método não permitido.", {
+      status: 405,
+      headers: { "Allow": "POST" }
+    });
   }
 
+  // 2. Validação do Corpo JSON (HTTP 400)
   let body;
   try {
     body = await request.json();
-  } catch {
-    return new Response("Corpo da requisição inválido", { status: 400 });
+  } catch (err) {
+    return new Response("JSON malformado.", { status: 400 });
+  }
+
+  if (!body || typeof body.numero === "undefined") {
+    return new Response("Campo 'numero' ausente.", { status: 400 });
   }
 
   const { numero } = body;
-
-  if (!numeroValido(numero)) {
-    return new Response("Número deve ser um inteiro entre 1 e 100", { status: 400 });
+  if (typeof numero !== "number" || !Number.isInteger(numero) || !numeroValido(numero)) {
+    return new Response("Número deve ser um inteiro entre 1 e 100.", { status: 400 });
   }
 
+  // 3. Extração do Cabeçalho Authorization (HTTP 401)
   const authHeader = request.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return new Response("Token de autorização ausente", { status: 401 });
+    return new Response("Cabeçalho Authorization ausente ou malformado.", { status: 401 });
   }
 
-  const idToken = authHeader.split(" ")[1];
-  const clientIDEsperado = env.GOOGLE_CLIENT_ID;
-  if (!clientIDEsperado) {
-    return new Response("Configuração GOOGLE_CLIENT_ID ausente no servidor", { status: 500 });
-  }
+  const idToken = authHeader.substring(7).trim();
 
+  // 4. Verificação Local Criptográfica do Token (HTTP 401)
   try {
-    const tokenInfoURL = new URL("https://oauth2.googleapis.com/tokeninfo");
-    tokenInfoURL.searchParams.set("id_token", idToken);
-    const googleResponse = await fetch(tokenInfoURL);
-
-    if (!googleResponse.ok) {
-      return new Response("Token do Google inválido ou expirado", { status: 401 });
-    }
-
-    const payload = await googleResponse.json();
-
-    if (payload.aud !== clientIDEsperado) {
-      return new Response("Token emitido para um Client ID incorreto", { status: 401 });
-    }
-
-    if (payload.email_verified !== "true" && payload.email_verified !== true) {
-      return new Response("E-mail não verificado na conta Google", { status: 401 });
-    }
+    const clientIDEsperado = env.GOOGLE_CLIENT_ID;
+    const payload = await verificarIdTokenLocal(idToken, clientIDEsperado);
 
     const emailAutenticado = payload.email;
 
+    // 5. Sucesso (HTTP 200) -> Gera o SVG
     const svgContent = gerarDesenho(numero, emailAutenticado);
 
     return new Response(svgContent, {
       status: 200,
-      headers: { "Content-Type": "image/svg+xml" }
+      headers: { "Content-Type": "image/svg+xml; charset=utf-8" }
     });
-
-  } catch {
-    return new Response("Não foi possível validar o token junto ao Google", { status: 502 });
+  } catch (erro) {
+    return new Response(`Falha na autenticação local: ${erro.message}`, { status: 401 });
   }
 }
