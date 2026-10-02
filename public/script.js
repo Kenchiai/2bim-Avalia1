@@ -9,7 +9,6 @@ const botaoBaixar = document.getElementById("baixar");
 let svgAtual = "";
 let idTokenGoogle = ""; // Variável para guardar o ID Token retornado pelo Google
 
-// O Google Identity Services procura o callback no escopo global da página.
 window.handleCredentialResponse = (response) => {
   if (!response || typeof response.credential !== "string" || !response.credential) {
     idTokenGoogle = "";
@@ -18,28 +17,32 @@ window.handleCredentialResponse = (response) => {
   }
 
   idTokenGoogle = response.credential;
-  mensagem.textContent = "Autenticado com sucesso! Agora você pode gerar o desenho.";
+  mensagem.style.color = "green";
+  mensagem.textContent = "Autenticado com sucesso com o Google!";
 };
 
 formulario.addEventListener("submit", async (evento) => {
   evento.preventDefault();
   mensagem.textContent = "";
+  mensagem.style.color = "red";
+  area.innerHTML = "";
+  botaoBaixar.hidden = true;
 
   const numero = Number(campoNumero.value);
 
   // Validação simples no frontend antes de enviar
   if (!Number.isInteger(numero) || numero < 1 || numero > 100) {
-    mensagem.textContent = "Digite um inteiro entre 1 e 100.";
+    mensagem.textContent = "Erro (400): Digite um inteiro entre 1 e 100.";
     return;
   }
 
   if (!idTokenGoogle) {
-    mensagem.textContent = "Por favor, faça login com o Google primeiro.";
+    mensagem.textContent = "Erro (401): Faça login com o Google primeiro.";
     return;
   }
 
   try {
-    // Chamada POST para a Pages Function (API)
+    // Requisição POST para a Pages Function /api/desenho
     const resposta = await fetch("/api/desenho", {
       method: "POST",
       headers: {
@@ -48,21 +51,16 @@ formulario.addEventListener("submit", async (evento) => {
       },
       body: JSON.stringify({ numero: numero })
     });
+});
 
-    if (resposta.ok) {
-      // Recebe o SVG gerado pelo servidor
-      svgAtual = await resposta.text();
-      area.innerHTML = svgAtual;
-      botaoBaixar.hidden = false;
-      mensagem.textContent = "";
-    } else {
-      // Trata erros 400 ou 401 devolvidos pelo servidor
-      const erro = await resposta.text();
-      mensagem.textContent = `Erro (${resposta.status}): ${erro}`;
-      area.innerHTML = "";
-      botaoBaixar.hidden = true;
-    }
-  } catch (err) {
-    mensagem.textContent = "Erro ao conectar com o servidor.";
-  }
+// Evento do botão para baixar o SVG gerado
+botaoBaixar.addEventListener("click", () => {
+  if (!svgAtual) return;
+  const arquivo = new Blob([svgAtual], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(arquivo);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "exemplo.svg";
+  link.click();
+  URL.revokeObjectURL(url);
 });
