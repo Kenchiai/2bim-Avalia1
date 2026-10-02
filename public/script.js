@@ -1,5 +1,3 @@
-// public/script.js
-
 const formulario = document.getElementById("formulario");
 const campoNumero = document.getElementById("numero");
 const area = document.getElementById("desenho");
@@ -7,7 +5,7 @@ const mensagem = document.getElementById("mensagem");
 const botaoBaixar = document.getElementById("baixar");
 
 let svgAtual = "";
-let idTokenGoogle = ""; // Variável para guardar o ID Token retornado pelo Google
+let idTokenGoogle = "";
 
 window.handleCredentialResponse = (response) => {
   if (!response || typeof response.credential !== "string" || !response.credential) {
@@ -30,7 +28,6 @@ formulario.addEventListener("submit", async (evento) => {
 
   const numero = Number(campoNumero.value);
 
-  // Validação simples no frontend antes de enviar
   if (!Number.isInteger(numero) || numero < 1 || numero > 100) {
     mensagem.textContent = "Erro (400): Digite um inteiro entre 1 e 100.";
     return;
@@ -42,7 +39,6 @@ formulario.addEventListener("submit", async (evento) => {
   }
 
   try {
-    // Requisição POST para a Pages Function /api/desenho
     const resposta = await fetch("/api/desenho", {
       method: "POST",
       headers: {
@@ -52,15 +48,12 @@ formulario.addEventListener("submit", async (evento) => {
       body: JSON.stringify({ numero: numero })
     });
 
-    // Tratamento dos códigos de resposta HTTP (200, 400, 401 e 405)
     if (resposta.ok) {
-      // HTTP 200 OK: Exibe o SVG gerado pelo servidor
       svgAtual = await resposta.text();
       area.innerHTML = svgAtual;
       botaoBaixar.hidden = false;
       mensagem.textContent = "";
     } else {
-      // Tratamento de Erros (400, 401, etc.)
       const textoErro = await resposta.text();
       
       if (resposta.status === 400) {
@@ -71,12 +64,11 @@ formulario.addEventListener("submit", async (evento) => {
         mensagem.textContent = `Erro ${resposta.status}: ${textoErro}`;
       }
     }
-  } catch (erro) {
+  } catch {
     mensagem.textContent = "Erro de rede ao tentar conectar com o servidor.";
   }
 });
 
-// Evento do botão para baixar o SVG gerado
 botaoBaixar.addEventListener("click", () => {
   if (!svgAtual) return;
   const arquivo = new Blob([svgAtual], { type: "image/svg+xml" });
