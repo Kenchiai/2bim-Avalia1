@@ -1,7 +1,7 @@
 // functions/api/desenho.js
+
 import { gerarDesenho, numeroValido } from "../../lib/desenho.js";
 
-// Funções auxiliares para decodificação Base64URL
 function base64UrlDecode(str) {
   let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
   while (base64.length % 4) {
@@ -21,7 +21,6 @@ function parseJwtSection(sectionBase64) {
   return JSON.parse(jsonStr);
 }
 
-// Função de validação local RS256 usando Web Crypto API
 async function verificarIdTokenLocal(idToken, clientIDEsperado) {
   const partes = idToken.split(".");
   if (partes.length !== 3) {
@@ -30,11 +29,9 @@ async function verificarIdTokenLocal(idToken, clientIDEsperado) {
 
   const [headerB64, payloadB64, signatureB64] = partes;
 
-  // 1. Decodifica Header e Payload
   const header = parseJwtSection(headerB64);
   const payload = parseJwtSection(payloadB64);
 
-  // 2. Validação dos Claims (iss, aud, exp, email_verified)
   const emissorValido =
     payload.iss === "https://accounts.google.com" ||
     payload.iss === "accounts.google.com";
@@ -56,7 +53,6 @@ async function verificarIdTokenLocal(idToken, clientIDEsperado) {
     throw new Error("E-mail não verificado pelo Google.");
   }
 
-  // 3. Busca o JWKS oficial do Google
   const jwksRes = await fetch("https://www.googleapis.com/oauth2/v3/certs");
   if (!jwksRes.ok) {
     throw new Error("Não foi possível obter as chaves públicas do Google.");
@@ -69,7 +65,6 @@ async function verificarIdTokenLocal(idToken, clientIDEsperado) {
     throw new Error("Chave correspondente ao 'kid' não encontrada no JWKS.");
   }
 
-  // 4. Importa a chave pública usando a Web Crypto API
   const cryptoKey = await crypto.subtle.importKey(
     "jwk",
     chavePublicaJwk,
@@ -81,7 +76,6 @@ async function verificarIdTokenLocal(idToken, clientIDEsperado) {
     ["verify"]
   );
 
-  // 5. Verifica a assinatura criptográfica RS256
   const dadosAssinados = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
   const assinaturaBytes = base64UrlDecode(signatureB64);
 
@@ -102,7 +96,6 @@ async function verificarIdTokenLocal(idToken, clientIDEsperado) {
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // 1. Validação de Método HTTP (HTTP 405)
   if (request.method !== "POST") {
     return new Response("Método não permitido.", {
       status: 405,
@@ -110,11 +103,10 @@ export async function onRequestPost(context) {
     });
   }
 
-  // 2. Validação do Corpo JSON (HTTP 400)
   let body;
   try {
     body = await request.json();
-  } catch (err) {
+  } catch {
     return new Response("JSON malformado.", { status: 400 });
   }
 
@@ -123,11 +115,10 @@ export async function onRequestPost(context) {
   }
 
   const { numero } = body;
-  if (typeof numero !== "number" || !Number.isInteger(numero) || !numeroValido(numero)) {
+  if (!numeroValido(numero)) {
     return new Response("Número deve ser um inteiro entre 1 e 100.", { status: 400 });
   }
 
-  // 3. Extração do Cabeçalho Authorization (HTTP 401)
   const authHeader = request.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return new Response("Cabeçalho Authorization ausente ou malformado.", { status: 401 });
@@ -135,21 +126,19 @@ export async function onRequestPost(context) {
 
   const idToken = authHeader.substring(7).trim();
 
-  // 4. Verificação Local Criptográfica do Token (HTTP 401)
   try {
     const clientIDEsperado = env.GOOGLE_CLIENT_ID;
     const payload = await verificarIdTokenLocal(idToken, clientIDEsperado);
 
     const emailAutenticado = payload.email;
 
-    // 5. Sucesso (HTTP 200) -> Gera o SVG
     const svgContent = gerarDesenho(numero, emailAutenticado);
 
     return new Response(svgContent, {
       status: 200,
       headers: { "Content-Type": "image/svg+xml; charset=utf-8" }
     });
-  } catch (erro) {
+  } catch {
     return new Response(`Falha na autenticação local: ${erro.message}`, { status: 401 });
   }
 }
