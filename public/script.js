@@ -51,6 +51,18 @@ formulario.addEventListener("submit", async (evento) => {
       },
       body: JSON.stringify({ numero: numero })
     });
+
+    // Tratamento dos códigos de resposta HTTP (200, 400, 401 e 405)
+    if (resposta.ok) {
+      // HTTP 200 OK: Exibe o SVG gerado pelo servidor
+      svgAtual = await resposta.text();
+      area.innerHTML = svgAtual;
+      botaoBaixar.hidden = false;
+      mensagem.textContent = "";
+    } 
+  } catch (erro) {
+    mensagem.textContent = "Erro de rede ao tentar conectar com o servidor.";
+  }
 });
 
 // Evento do botão para baixar o SVG gerado
