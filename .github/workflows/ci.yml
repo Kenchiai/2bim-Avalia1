@@ -11,8 +11,7 @@ jobs:
       
       - name: Procura segredos versionados
         run: |
-          if git grep -nE "GOCSPX-|client_secret *= *['\"][^'\"]+" -- . ':!*.md';
-          then
+          if git grep -nE "GOCSPX-|client_secret *= *['\"][^'\"]+" -- . ':!*.md'; then
             echo "::error::Possível segredo no repositório"
             exit 1
           fi
@@ -21,6 +20,6 @@ jobs:
         run: | 
           for f in migrations/*.sql; do sqlite3 teste.db < "$f" ; done 
           sqlite3 teste.db ".tables" 
-          
+
       - name: Valida HTML 
         run: npx --yes htmlhint "**/*.html"
