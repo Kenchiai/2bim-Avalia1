@@ -29,7 +29,7 @@ jobs:
             echo "Aponte, em português e em até 10 itens: segredos expostos,"
             echo "SQL montado por concatenação em vez de prepare().bind(), e erros de lógica."
             echo '```diff'
-            git diff origin/\${{ github.base_ref }}...HEAD | head -c 20000
+            git diff origin/${{ github.base_ref }}...HEAD | head -c 20000
             echo '```'
           } > prompt.txt
 
