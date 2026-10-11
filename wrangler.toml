@@ -1,0 +1,7 @@
+name = "meu-site-pages"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "oauth-sessions-kenchiai"
+database_id = 256d79f4-3539-4958-94eb-b21a48998091
