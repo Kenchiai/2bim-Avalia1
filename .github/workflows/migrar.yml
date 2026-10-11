@@ -15,7 +15,7 @@ jobs:
         with:
           node-version: 22
 
-      - run: npx --yes wrangler d1 migrations apply NOME_DO_BANCO --remote
+      - run: npx --yes wrangler d1 migrations apply oauth-sessions-kenchiai --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
