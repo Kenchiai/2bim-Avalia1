@@ -1,1 +1,3 @@
-ALTER TABLE notas ADD COLUMN observacao TEXT;
+CREATE TABLE IF NOT EXISTS notas (
+    aluno TEXT
+);
