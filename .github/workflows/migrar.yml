@@ -3,7 +3,9 @@ name: migrar
 on:
   push:
     branches: [main]
-    paths: ['migrations/**']
+    paths:
+      - 'migrations/**'
+      - 'wrangler.toml'
 
 jobs:
   aplicar:
