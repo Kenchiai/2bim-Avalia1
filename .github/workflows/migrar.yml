@@ -13,8 +13,6 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-
-      - name: Valida credenciais da Cloudflare
       - run: npx --yes wrangler d1 migrations apply oauth-sessions-kenchiai --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
