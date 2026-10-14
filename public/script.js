@@ -55,7 +55,7 @@ formulario.addEventListener("submit", async (evento) => {
       mensagem.textContent = "";
     } else {
       const textoErro = await resposta.text();
-      
+
       if (resposta.status === 400) {
         mensagem.textContent = `Erro 400 (Requisição inválida): ${textoErro}`;
       } else if (resposta.status === 401) {

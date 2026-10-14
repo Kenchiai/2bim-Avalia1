@@ -1,6 +1,10 @@
-export async function onRequest(context) {
+﻿export async function onRequest(context) {
   const nome = "teste";
-  // Consulta segura usando .bind()
-  const dados = await context.env.DB.prepare("SELECT \* FROM notas WHERE aluno = ?").bind(nome).all();
+
+  if (!context?.env?.DB) {
+    return new Response("Banco de dados não configurado.", { status: 500 });
+  }
+
+  const dados = await context.env.DB.prepare("SELECT * FROM notas WHERE aluno = ?").bind(nome).all();
   return new Response(JSON.stringify(dados));
 }

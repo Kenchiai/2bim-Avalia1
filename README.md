@@ -1,4 +1,4 @@
-# Desenho Assinado
+﻿# Desenho Assinado
 
 Página que recebe um número inteiro entre 1 e 100 e devolve uma figura em SVG, assinada com um e-mail.
 
@@ -6,15 +6,7 @@ A figura é a tabuada modular no círculo: 240 pontos igualmente espaçados numa
 
 ## Estado inicial
 
-Nesta versão tudo acontece no navegador. O arquivo `public/desenho.js` contém a função `gerarDesenho(numero, email)`, e o e-mail é digitado pelo usuário num campo do formulário.
-
-```
-public/
-  index.html    formulário com os campos número e e-mail
-  style.css     aparência da página
-  script.js     lê o formulário e chama gerarDesenho
-  desenho.js    gera o SVG (função pura, sem DOM)
-```
+Nesta versão a lógica de geração do SVG fica em `lib/desenho.js` e a interface em `public/index.html` + `public/script.js`.
 
 ## Publicação no Cloudflare Pages
 
