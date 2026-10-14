@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'migrations/**'
+      - 'wrangler.toml'
 jobs:
   aplicar:
     runs-on: ubuntu-latest
