@@ -1,4 +1,4 @@
-// functions/api/desenho.js
+﻿// functions/api/desenho.js
 
 import { gerarDesenho, numeroValido } from "../../lib/desenho.js";
 
@@ -103,6 +103,10 @@ export async function onRequestPost(context) {
     });
   }
 
+  if (!env || !env.GOOGLE_CLIENT_ID) {
+    return new Response("Variável GOOGLE_CLIENT_ID não configurada.", { status: 500 });
+  }
+
   let body;
   try {
     body = await request.json();
@@ -125,12 +129,17 @@ export async function onRequestPost(context) {
   }
 
   const idToken = authHeader.substring(7).trim();
+  if (!idToken) {
+    return new Response("Token JWT ausente no cabeçalho Authorization.", { status: 401 });
+  }
 
   try {
-    const clientIDEsperado = env.GOOGLE_CLIENT_ID;
-    const payload = await verificarIdTokenLocal(idToken, clientIDEsperado);
+    const payload = await verificarIdTokenLocal(idToken, env.GOOGLE_CLIENT_ID);
+    const emailAutenticado = typeof payload.email === "string" ? payload.email : "";
 
-    const emailAutenticado = payload.email;
+    if (!emailAutenticado) {
+      throw new Error("E-mail ausente no token do Google.");
+    }
 
     const svgContent = gerarDesenho(numero, emailAutenticado);
 
@@ -138,7 +147,7 @@ export async function onRequestPost(context) {
       status: 200,
       headers: { "Content-Type": "image/svg+xml; charset=utf-8" }
     });
-  } catch {
-    return new Response(`Falha na autenticação local: ${erro.message}`, { status: 401 });
+  } catch (erro) {
+    return new Response(`Falha na autenticação local: ${erro instanceof Error ? erro.message : String(erro)}`, { status: 401 });
   }
 }
